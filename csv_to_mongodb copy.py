@@ -37,8 +37,8 @@ except Exception:  # pragma: no cover - optional dependency
 # ──────────────────────────────────────────────
 # Configuración de rutas
 # ──────────────────────────────────────────────
-DEFAULT_INPUT  = "data/registros_aduana_sinteticos.csv"
-DEFAULT_OUTPUT = "data/registros_aduana_nl.json"
+DEFAULT_INPUT  = "registros_aduana_sinteticos.csv"
+DEFAULT_OUTPUT = "registros_aduana_mongodb.json"
 
 INPUT_FILE  = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_INPUT
 OUTPUT_FILE = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUTPUT
@@ -213,39 +213,6 @@ def transform_row(row: dict) -> dict:
     return doc
 
 # ──────────────────────────────────────────────
-# Función para CSV → JSONL
-# ──────────────────────────────────────────────
-
-def csv_json_nl(input_file: str, output_file: str, transform_func=transform_row, encoding: str = "utf-8") -> dict:
-    """Lee `input_file` (CSV) y escribe `output_file` (JSONL: un JSON por línea).
-
-    Devuelve un dict con conteos: `processed`, `written`, `errors`, `output`.
-    """
-    processed = 0
-    written = 0
-    errors = 0
-
-    if not os.path.exists(input_file):
-        print(f"❌  Archivo no encontrado: {input_file}")
-        return {"processed": 0, "written": 0, "errors": 1, "output": output_file}
-
-    with open(input_file, newline="", encoding=encoding) as f_in, \
-         open(output_file, "w", encoding=encoding) as f_out:
-        reader = csv.DictReader(f_in)
-        for idx, row in enumerate(reader, start=1):
-            processed += 1
-            try:
-                doc = transform_func(row)
-                f_out.write(json.dumps(doc, ensure_ascii=False) + "\n")
-                written += 1
-            except Exception as e:
-                errors += 1
-                if errors <= 5:
-                    print(f"    Error fila {idx}: {e}")
-
-    return {"processed": processed, "written": written, "errors": errors, "output": output_file}
-
-# ──────────────────────────────────────────────
 # Carga a MongoDB
 # ──────────────────────────────────────────────
 
@@ -389,12 +356,23 @@ def load_json_to_mongodb(filepath: str, mongo_uri: str = "mongodb://localhost:27
         return result
 
     with open(filepath, "r", encoding="utf-8") as f:
+        # Intentar cargar como JSON array; si falla, intentar JSONL (una línea = un JSON)
         try:
             docs = json.load(f)
-        except Exception as e:
-            print(f"❌  Error leyendo JSON: {e}")
-            result["errors"] = 1
-            return result
+        except Exception:
+            f.seek(0)
+            docs = []
+            for ln, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    docs.append(json.loads(line))
+                except Exception as e:
+                    print(f"❌  Error parseando JSONL en línea {ln}: {e}")
+                    result["errors"] += 1
+            if not docs and result["errors"] > 0:
+                return result
 
     try:
         client = MongoClient(mongo_uri)
@@ -437,43 +415,29 @@ def main():
         print(f"❌  Archivo no encontrado: {INPUT_FILE}")
         sys.exit(1)
 
-    documents = []
-    errores   = []
+    # Usar csv_jsonnl para generar JSONL y luego cargarlo a MongoDB
+    print(f"\n→ Transformando CSV a JSONL: {INPUT_FILE} -> {OUTPUT_FILE}")
+    csv_result = csv_jsonnl(INPUT_FILE, OUTPUT_FILE)
 
-    csv_json_nl(INPUT_FILE, OUTPUT_FILE, transform_func=transform_row)
+    print(f"\n→ Resultado transformación: procesados={csv_result.get('processed')}, escritos={csv_result.get('written')}, errores={csv_result.get('errors')}")
 
-    """ with open(INPUT_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for idx, row in enumerate(reader, start=1):
-            try:
-                documents.append(transform_row(row))
-            except Exception as e:
-                errores.append({"fila": idx, "error": str(e)})
-
-    # Escribir JSON array
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(documents, f, ensure_ascii=False, indent=2) """
-
-    # Intentar cargar el JSON recién generado en MongoDB local
-    """ try:
+    # Intentar cargar el archivo (JSON array o JSONL) en MongoDB local
+    try:
         load_result = load_json_to_mongodb(OUTPUT_FILE)
         if load_result.get("errors", 0) == 0:
             print(f"✅  Carga a MongoDB completada: procesados={load_result.get('processed')}, insertados={load_result.get('inserted')}, actualizados={load_result.get('updated')}")
         else:
             print(f"⚠️  Carga a MongoDB con errores: {load_result}")
     except Exception as e:
-        print(f"⚠️  Error al ejecutar la carga a MongoDB: {e}") """
+        print(f"⚠️  Error al ejecutar la carga a MongoDB: {e}")
 
-    # Reporte
+    # Reporte final
     print(f"\n✅  Transformación completada")
-    print(f"    Registros procesados : {len(documents)}")
-    print(f"    Errores              : {len(errores)}")
+    print(f"    Registros procesados : {csv_result.get('processed')}")
+    print(f"    Escritos (JSONL)      : {csv_result.get('written')}")
+    print(f"    Errores transformación: {csv_result.get('errors')}")
     print(f"    Archivo generado     : {OUTPUT_FILE}")
-    if errores:
-        print(f"\n⚠️  Detalle de errores:")
-        for e in errores[:10]:
-            print(f"    Fila {e['fila']}: {e['error']}")
-    print(f"\nSiguiente paso: importar el archivo JSON a MongoDB {OUTPUT_FILE}")
+    print(f"\nSiguiente paso: importar el archivo JSON a MongoDB {load_result}")
 
 
 
