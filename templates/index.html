@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+    <p>This is the home page of our Flask application.</p>
+   {% for post in posts %}
+        <p>{{ post.content }}</p>
+    {% endfor %}
+{% endblock content %}

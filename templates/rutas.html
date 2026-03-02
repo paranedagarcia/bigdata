@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-xl mt-4">
+    <h1>Rutas</h1>
+    
+        <table class="table table-bordered table-striped table-hover table-sm mb-3">
+            <thead><tr></tr>
+                {% if rutas and rutas|length > 0 %}
+                    {% for key in rutas[0].keys() %}
+                        <th>{{ key | replace('.', ' ') }}</th>
+                    {% endfor %}
+                {% endif %}
+            </tr>
+            </thead>
+            <tbody>
+                {% for ruta in rutas %}
+                <tr></tr>
+                {% for key, value in ruta.items() %}
+                        <td>
+                            {% if value is mapping or (value is sequence and not value is string) %}
+                                <pre style="margin:0">{{ value | tojson(indent=2) }}</pre>
+                            {% else %}
+                                {{ value }}
+                            {% endif %}
+                        </td>
+                    
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+</div>  
+{% endblock content %}
