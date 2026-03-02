@@ -37,8 +37,8 @@ except Exception:  # pragma: no cover - optional dependency
 # ──────────────────────────────────────────────
 # Configuración de rutas
 # ──────────────────────────────────────────────
-DEFAULT_INPUT  = "data/registros_aduana_sinteticos.csv"
-DEFAULT_OUTPUT = "data/registros_aduana_nl.json"
+DEFAULT_INPUT  = "data/registros_aduana_100.csv"
+DEFAULT_OUTPUT = "data/registros_aduana_100.json"
 
 INPUT_FILE  = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_INPUT
 OUTPUT_FILE = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUTPUT

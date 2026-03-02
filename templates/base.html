@@ -26,9 +26,9 @@
 </head>
 
 <body>
-    <header class="bg-primary text-white text-center py-3 mb-4">
-        <h1 class="h2 m-0">Rutas App</h1>
-        <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top" data-bs-theme="dark">
+    <header class="bg-primary text-white text-center fixed-top">
+        <!-- <h1 class="h2 m-0">Rutas App</h1> -->
+        <nav class="navbar navbar-expand-md navbar-dark bg-steel " data-bs-theme="dark">
             <div class="container">
                 <a class="navbar-brand" href="/">MongoDb</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -46,10 +46,12 @@
             </div>
         </nav>
     </header>
-  {% block content %}
-  {% endblock content %}
+    <div class="container mt-5 mb-5 py-4">
+        {% block content %}
+        {% endblock content %}
+    </div>
 
-  <footer class="mt-auto py-3 bg-body-tertiary borter-top">
+  <footer class="mt-auto py-3 bg-body-tertiary border-top fixed-bottom">
     <div class="container text-center">
         <span class="text-muted">© <span id="year"></span> Patricio Araneda. All rights reserved.</span>
     </div>

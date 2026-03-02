@@ -3,9 +3,11 @@ This is the main module for the bigdata package.
 It serves as the entry point for the package and can be used to execute any necessary setup or initialization code.
 """
 from fastapi import FastAPI, Request, HTTPException, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import json
 import os
 
@@ -124,8 +126,9 @@ def get_data(limit: int = 100, file_path: str = os.path.join("data", "registros_
 
     return result
     
-
+# ------------------------------------------------------
 #rutas
+# ------------------------------------------------------
 @app.get("/",include_in_schema=False, name="home")
 def home(request: Request):
     """Endpoint de prueba para verificar que la aplicación está funcionando correctamente."""
@@ -136,7 +139,8 @@ def home(request: Request):
 def status():
     """Endpoint para obtener una lista de registros de la base de datos."""
     if not check_mongodb_connection(MONGO_URI):
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo conectar a MongoDB")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="No se pudo conectar a MongoDB")
     
     rutas = get_rutas()
     return JSONResponse(content={"rutas": rutas}, status_code=200)
@@ -146,7 +150,60 @@ def status():
 def rutas(request: Request):
     """Endpoint para obtener una lista de registros de rutas."""
     if not check_mongodb_connection(MONGO_URI):
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No se pudo conectar a MongoDB")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="No se pudo conectar a MongoDB")
     
     rutas = get_data()
     return templates.TemplateResponse("rutas.html", {"request": request, "rutas": rutas})
+
+# ------------------------------------------------------
+# Manejo de errores
+# ------------------------------------------------------
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Manejador de excepciones para errores HTTP."""
+    message = (
+        exc.detail 
+        if exc.detail 
+        else "Ocurrió un error inesperado."
+    )
+
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": message}
+        )
+
+    # Personalizar mensajes para errores comunes
+    if exc.status_code == 404:
+        message = "La página que estás buscando no existe."
+    elif exc.status_code == 500:
+        message = "Ocurrió un error interno en el servidor."
+
+    return templates.TemplateResponse("error.html", 
+                                      {"request": request, 
+                                       "status_code": exc.status_code, 
+                                       "error_message": message
+                                       }, 
+                                       status_code=exc.status_code
+                                       ) 
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Manejador de excepciones para errores de validación de solicitudes."""
+    message = "Datos de entrada no válidos. Por favor, revisa tu solicitud."
+
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"error": message, "details": exc.errors()}
+        )
+
+    return templates.TemplateResponse("error.html", 
+                                      {"request": request, 
+                                       "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT, 
+                                       "error_message": message
+                                       }, 
+                                       status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                       )    
+
