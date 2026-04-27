@@ -5,6 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "dbt-bigquery>=1.11.1",
+    "dbt-core>=1.11.8",
+    "dbt-extractor>=0.6.0",
+    "dbt-postgres>=1.10.0",
     "fastapi[standard]>=0.135.0",
     "pymongo>=4.16.0",
 ]
